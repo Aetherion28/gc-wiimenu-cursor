@@ -1,4 +1,4 @@
-# GameCube Controller Cursor for the Wii Menu
+# GameCube Controller Cursor for the Wii System Menu
 
 A [Priiloader](https://github.com/DacoTaco/priiloader) hack that lets a **GameCube controller** drive the Wii Menu pointer, with **no Wii Remote** connected. The control stick moves the cursor, and the GameCube buttons act as Wii Remote buttons, including the HOME Menu.
 
@@ -39,9 +39,9 @@ You need a softmodded Wii with Priiloader and an SD card.
 2. **Write down which hacks you already have enabled.** In Priiloader, open **System Menu Hacks** and note every hack that is on (for example *Block Disc Updates*, *Block Online Updates* or a *Region Free* hack).
    > ⚠️ Priiloader remembers hacks by their position in the list. Adding a new hack changes the list, so **all your hacks get switched off**. You will turn them back on in step 6.
 3. **Add the hack to your hacks file.** Put the SD card in your computer and open `SD:/apps/priiloader/hacks_hash.ini` in a text editor (in Notepad, turn off *Format → Word Wrap*). If the file doesn't exist, use the `hacks_hash.ini` that came with your Priiloader download.
-4. Copy **all** of [`hack/gc_cursor_hack.ini`](hack/gc_cursor_hack.ini) and paste it at the very end of `hacks_hash.ini`, starting on a new line. Each `patch=` line is very long and must stay on **one line**. Save the file.
+4. Copy **all** of [`hack/gc_cursor_hack.ini`](hack/gc_cursor_hack.ini) and paste it at the very end of `hacks_hash.ini`, starting on a new line. Each `patch=` line is very long and must stay on **one line**, make sure to **turn off Word Wrap**. Save the file.
 5. Put the SD card back in the Wii, hold **RESET** while powering on, and open **System Menu Hacks**.
-6. Turn on **GameCube Controller Cursor**, turn your other hacks from step 2 back on, then select **Save**.
+6. Turn on **GameCube Controller Cursor**, and turn your other hacks *from step 2 back on*, then select **Save**.
 7. Turn off your Wii Remotes, plug a GameCube controller into any port, and boot the System Menu.
 
 ## Uninstall / recovery
