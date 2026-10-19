@@ -1,3 +1,7 @@
+<p align="center" width="100%">
+  <img width="720" alt="fidget spinner" src="https://raw.githubusercontent.com/zeldocto//gc-wiimenu-cursor/docs/Logo.png">
+</p>
+
 # GameCube Controller Cursor for the Wii System Menu
 
 A [Priiloader](https://github.com/DacoTaco/priiloader) hack that lets a **GameCube controller** drive the Wii Menu pointer, with **no Wii Remote** connected. The control stick moves the cursor, and the GameCube buttons act as Wii Remote buttons, including the HOME Menu.
