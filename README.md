@@ -1,5 +1,5 @@
 <p align="center" width="100%">
-  <img width="720" alt="fidget spinner" src="https://raw.githubusercontent.com/zeldocto/gc-wiimenu-cursor/docs/Logo.png">
+  <img width="720" alt="fidget spinner" src="https://raw.githubusercontent.com/Zeldocto/gc-wiimenu-cursor/main/docs/Logo.png">
 </p>
 
 # GameCube Controller Cursor for the Wii System Menu
