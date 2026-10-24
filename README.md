@@ -13,7 +13,7 @@ Tested on a real Wii and in Dolphin.
 | | |
 |---|---|
 | System Menu | **4.3U (v513) only** |
-| Priiloader | tested with 0.9.1; current releases use the same hack format |
+| Priiloader | Tested on 0.9.1 and 0.10.0 |
 | Console | Wii (not tested on vWii / Wii U) |
 
 To check your version, open **Wii Settings**: it's shown in the top right corner. It must say **4.3U**. Priiloader only lists the hack on v513, so other versions can't enable it by accident.
@@ -42,7 +42,7 @@ You need a softmodded Wii with Priiloader and an SD card.
 1. **Make sure you can reach Priiloader.** Power on the Wii while holding **RESET**. The Priiloader menu should appear. This is also how you turn the hack off if anything goes wrong.
 2. **Write down which hacks you already have enabled.** In Priiloader, open **System Menu Hacks** and note every hack that is on (for example *Block Disc Updates*, *Block Online Updates* or a *Region Free* hack).
    > ⚠️ Priiloader remembers hacks by their position in the list. Adding a new hack changes the list, so **all your hacks get switched off**. You will turn them back on in step 6.
-3. **Add the hack to your hacks file.** Put the SD card in your computer and open `SD:/apps/priiloader/hacks_hash.ini` in a text editor (in Notepad, turn off *Format → Word Wrap*). If the file doesn't exist, use the `hacks_hash.ini` that came with your Priiloader download.
+3. **Add the hack to your hacks file.** Put the SD card in your computer and open `SD:/apps/priiloader/hacks_hash.ini` in a text editor (in Notepad, turn off *Format → Word Wrap*). If the file doesn't exist (newer Priiloader installs keep it on the Wii's internal memory instead), download `hacks_hash.ini` from the [Priiloader releases page](https://github.com/DacoTaco/priiloader/releases) and put it in `SD:/apps/priiloader/` first.
 4. Copy **all** of [`hack/gc_cursor_hack.ini`](hack/gc_cursor_hack.ini) and paste it at the very end of `hacks_hash.ini`, starting on a new line. Each `patch=` line is very long and must stay on **one line**, make sure to **turn off Word Wrap**. Save the file.
 5. Put the SD card back in the Wii, hold **RESET** while powering on, and open **System Menu Hacks**.
 6. Turn on **GameCube Controller Cursor**, and turn your other hacks *from step 2 back on*, then select **Save**.
@@ -62,6 +62,7 @@ The hack only patches the System Menu in memory each time it starts. It does not
 | It's listed and enabled, but nothing happens | Make sure you selected **Save**, and that every Wii Remote is off. |
 | Region-free games or other hacks stopped working | Priiloader turned your other hacks off when the list changed (see install step 2). Turn them back on and **Save**. |
 | Still not working | Use the debug build below and check the disc slot light. |
+| No `hacks_hash.ini` on the SD card | Download it from the [Priiloader releases page](https://github.com/DacoTaco/priiloader/releases), put it in `SD:/apps/priiloader/`, then add the hack to it. |
 
 **Debug build:** [`hack/gc_cursor_hack_debug.ini`](hack/gc_cursor_hack_debug.ini) is the same hack, plus it uses the **blue disc slot light** to show what it's doing. Use it instead of the normal block (not both):
 
