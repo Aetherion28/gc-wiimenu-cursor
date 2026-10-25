@@ -12,13 +12,21 @@ from pathlib import Path
 
 from capstone import CS_ARCH_PPC, CS_MODE_32, CS_MODE_BIG_ENDIAN, Cs
 
-DOL = Path(__file__).resolve().parent.parent / "bin" / "sysmenu_v513.dol"
-R13 = 0x8169E040  # _SDA_BASE_, set at 0x8133012C
-R2 = 0x8169C400   # _SDA2_BASE_, set at 0x81330124
+BIN = Path(__file__).resolve().parent.parent / "bin"
+DOL = BIN / "sysmenu_v513.dol"
+R13 = 0x8169E040  # _SDA_BASE_, set at 0x8133012C (v513)
+R2 = 0x8169C400   # _SDA2_BASE_, set at 0x81330124 (v513)
+
+
+def dol_path(menu):
+    """bin/sysmenu_v<menu>.dol: your own copy of that menu's boot content."""
+    return BIN / f"sysmenu_v{menu}.dol"
 
 
 class Dol:
     def __init__(self, path=DOL):
+        if isinstance(path, int):
+            path = dol_path(path)
         self.raw = Path(path).read_bytes()
         h = struct.unpack(">64I", self.raw[:0x100])
         self.sections = [(h[18 + i], h[i], h[36 + i]) for i in range(18) if h[36 + i]]  # (addr, off, size)
@@ -86,9 +94,20 @@ class Dol:
         return hits
 
 
+def menu_arg(argv):
+    """Pop `--menu N` from argv -> the DOL for that version (default v513)."""
+    if "--menu" in argv:
+        i = argv.index("--menu")
+        menu = int(argv[i + 1])
+        del argv[i:i + 2]
+        return Dol(menu)
+    return Dol()
+
+
 if __name__ == "__main__":
-    d = Dol()
-    cmd, args = sys.argv[1], [int(x, 0) for x in sys.argv[2:]]
+    argv = sys.argv[1:]
+    d = menu_arg(argv)      # sda: R13/R2 are the v513 values
+    cmd, args = argv[0], [int(x, 0) for x in argv[1:]]
     if cmd == "dis":
         print(d.dis(args[0], args[1] if len(args) > 1 else 32))
     elif cmd == "callers":

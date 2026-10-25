@@ -4,10 +4,12 @@ Every address that anything can reach is collected: branch targets (b/bl/bc), ra
 32-bit pointers anywhere in the DOL, and lis+addi/ori pairs. A dead range starts at an
 unreferenced `stwu r1` prologue and ends just before the next reachable address or the
 next prologue. Branches *inside* the range don't count.
+
+  python tools/caves.py [--menu 514]
 """
 import sys
 sys.path.insert(0, __import__("os").path.dirname(__file__))
-from ppc import Dol
+from ppc import menu_arg
 
 LO, HI = 0x81330000, 0x816DFFE0
 
@@ -63,5 +65,5 @@ def dead_ranges(d):
 
 
 if __name__ == "__main__":
-    for s, n in dead_ranges(Dol())[:20]:
+    for s, n in dead_ranges(menu_arg(sys.argv))[:20]:
         print(f"  {s:08x}-{s+n:08x}  size {n:#6x}")

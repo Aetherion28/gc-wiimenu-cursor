@@ -1,6 +1,6 @@
-# Technical notes: System Menu 4.3U (v513)
+# Technical notes: System Menu 4.3U (v513) and 4.3E (v514)
 
-Everything below is for the v513 menu DOL (SHA-1 `26116613f624061ba99c8d1a299aaa6efa85670d`). Addresses are virtual (`0x8xxxxxxx`).
+Everything below is for the v513 menu DOL (SHA-1 `26116613f624061ba99c8d1a299aaa6efa85670d`) unless it says otherwise. Addresses are virtual (`0x8xxxxxxx`). The 4.3E addresses are in [System Menu 4.3E (v514)](#system-menu-43e-v514).
 
 ## Menu DOL layout
 
@@ -135,6 +135,7 @@ Checked against DacoTaco/priiloader `master` and tag `0.9.1`.
 - Each `0x........` value is split into bytes, so always write 8 hex digits. The maximum line length is 0x2000 characters, and a name can be at most 39 characters.
 - `hacks_hash.ini` is read from `fat:/apps/priiloader/` (SD/USB), otherwise from NAND `/title/00000001/00000002/data/hackshas.ini`. Saving in the hacks menu copies the SD file to NAND, and the menu boot reads the NAND copy.
 - Hack on/off states (`hacksh_s.ini`) are one byte per hack, **by index**. If the number of hacks changes, all states are reset to off.
+- Every hack in the file is loaded, but the hacks menu only lists the ones whose `minversion`..`maxversion` contains the running menu, and the others are forced off at boot (`main.cpp`, `hacks.cpp` on `master`). That's why `gc_cursor_hack.ini` can hold a v513 and a v514 block with the same name.
 
 ## Testing in Dolphin
 
@@ -154,11 +155,37 @@ Pitfalls found along the way:
 - In PowerPC, `addi rD, r0, x` means `li rD, x`, so r0 is never used as a base register.
 - keystone mis-encodes `bl <absolute address>` in some multi-label sources. `build.py` encodes b/bl itself and checks every branch target with capstone.
 
+## System Menu 4.3E (v514)
+
+DOL SHA-1 `2ebea6ed22473857ed64b12daa71ae2d1ed61708`, TMD version 514, boot content index 8 (`0000009b.app`, or `1000009b.app` with Priiloader). Same section layout as v513 (T0 `0x80003400` size `0x400`, D0 `0x8132FFE0` size `0x3B0000`) and the same SDK build: `WPADProbe`, `KPADRead`, `PADRead`, `PADReset` and `memset` are byte-identical to v513, only moved. So the KPADStatus/PADStatus layouts above apply unchanged. Everything else used here moved by `+0x70` to `+0xFC` (the controller manager by `+0x70`, the code cave by `+0xA8`, the data cave and the SDK by `+0xFC`), except `memset`, which stayed put.
+
+| | v513 | v514 |
+|---|---|---|
+| `WPADProbe` | `0x8157AA24` | `0x8157AB20` |
+| `KPADRead` | `0x81587984` | `0x81587A80` |
+| `PADRead` | `0x81576930` | `0x81576A2C` |
+| `PADReset` | `0x815765C0` | `0x815766BC` |
+| `memset` | `0x81330334` | `0x81330334` |
+| controller manager update | `0x81337500` | `0x81337570` |
+| `bl WPADProbe` site | `0x81337584` | `0x813375F4` |
+| `bl KPADRead` site | `0x813375BC` | `0x8133762C` |
+| code cave | `0x8135A19C` (0x324) | `0x8135A244` (0x324) |
+| data cave | `0x814AE13C` (0x278) | `0x814AE238` (0x278) |
+| data block | `0x814AE140` | `0x814AE238` |
+
+v514's data cave starts 8-aligned, so the data block sits at its start (v513 skips 4 bytes to get alignment). The EU hook is the same code as v513's: comparing the two patched DOLs, every instruction is identical except branch offsets (each target holds the same code in both menus) and the `lis`/`addi` of the data block address. It also doesn't overlap any of the official `hacks_hash.ini` hacks (`tools/hackini.py`).
+
+How it was found: `tools/port.py` locates each v513 address in the v514 DOL by matching the surrounding instructions with address-dependent fields masked. All of them matched uniquely with a ±8-instruction window. The call sites were then checked with `ppc.py --menu 514 dis`, and the caves with `caves.py --menu 514`.
+
+Not tested on 4.3E hardware or in Dolphin yet. One thing to watch: cursor speed and the button-repeat delays count frames, so a menu running at 50 Hz moves the cursor about 17% slower than at 60 Hz.
+
 ## Porting to another menu version
 
-Repeat the hunt in the new DOL:
+If the new menu uses the same SDK build (like 4.3E), start with `python tools/port.py bin/sysmenu_v<N>.dol`. It prints each v513 address's counterpart. Check the results the same way as for v514 above, then add a `MENUS` entry in `tools/build.py`. `mkhack.py` writes a block for every built version.
+
+Otherwise, repeat the hunt in the new DOL:
 
 1. Find PAD/WPAD/KPAD via their `<< RVL_SDK - ... >>` version strings → `OSRegisterVersion` callers → the neighbouring functions.
 2. Find the controller manager by following `KPADRead`'s callers, and the `WPADProbe` + `KPADRead` call sites in its 4-channel loop.
-3. Run `tools/caves.py` to find caves, then update `SDK`, `SITES` and `CAVES` in `tools/build.py`, plus `VERSION` in `tools/mkhack.py`.
+3. Run `tools/caves.py --menu <N>` to find caves, then add `SDK`, `SITES` and `CAVES` for the version to `MENUS` in `tools/build.py`.
 4. Confirm the KPADStatus layout with a RAM dump; it can change between SDK versions.

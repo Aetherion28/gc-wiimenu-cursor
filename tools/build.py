@@ -1,8 +1,9 @@
-"""Assemble asm/gc_hook.s for a given load address and build its data block.
+"""Assemble asm/gc_hook.s for every supported menu version and build its data block.
 
-  python tools/build.py [code_addr] [data_addr]     (defaults: live-test addresses)
+  python tools/build.py [--release] [-v]                        every version in MENUS
+  python tools/build.py --menu 514 [code_addr] [data_addr]      one version (default: its caves)
 
-Writes build/gc_hook.bin (code), build/gc_data.bin (data), build/gc_hook.json (symbols).
+Writes build/v<version>/gc_hook.bin (code), gc_data.bin (data), gc_hook.json (symbols).
 """
 import json
 import re
@@ -15,14 +16,22 @@ from keystone import KS_ARCH_PPC, KS_MODE_BIG_ENDIAN, KS_MODE_PPC32, Ks
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# menu v513 functions
-SDK = dict(WPADProbe=0x8157AA24, KPADRead=0x81587984, PADRead=0x81576930, PADReset=0x815765C0,
-           memset=0x81330334)
-SITES = dict(probe=(0x81337584, 0x482434A1), kpad=(0x813375BC, 0x482503C9))  # (addr, original bl)
-
-# dead functions in v513 used as code caves (found by tools/caves.py): (start, size)
+# per menu version: SDK functions, call sites (addr, original bl), and dead functions used as
+# code caves (found by tools/caves.py): (start, size). The data cave must be 8-aligned (lfd).
 # 0x80001800 is NOT usable: Dolphin's Gecko cheat handler lives there.
-CAVES = dict(code=(0x8135A19C, 0x324), data=(0x814AE140, 0x274))
+# v514 was mapped from v513 with tools/port.py: same SDK build, code shifted by 0x70-0xFC.
+MENUS = {
+    513: dict(name="4.3U",
+              SDK=dict(WPADProbe=0x8157AA24, KPADRead=0x81587984, PADRead=0x81576930,
+                       PADReset=0x815765C0, memset=0x81330334),
+              SITES=dict(probe=(0x81337584, 0x482434A1), kpad=(0x813375BC, 0x482503C9)),
+              CAVES=dict(code=(0x8135A19C, 0x324), data=(0x814AE140, 0x274))),
+    514: dict(name="4.3E",
+              SDK=dict(WPADProbe=0x8157AB20, KPADRead=0x81587A80, PADRead=0x81576A2C,
+                       PADReset=0x815766BC, memset=0x81330334),
+              SITES=dict(probe=(0x813375F4, 0x4824352D), kpad=(0x8133762C, 0x48250455)),
+              CAVES=dict(code=(0x8135A244, 0x324), data=(0x814AE238, 0x278))),
+}
 
 # tuning
 DEADZONE = 12
@@ -87,8 +96,9 @@ def is_label(line):
     return line.endswith(":") and not line.startswith(" ")
 
 
-def assemble(code_addr, data_addr):
+def assemble(menu, code_addr, data_addr):
     """-> ({section: bytes}, {label: addr}). code2 is placed right after the data block."""
+    SDK = MENUS[menu]["SDK"]
     bases = dict(code=code_addr, code2=data_addr + DATA_SIZE)
     secs = read_sections()
     # label addresses: every non-label line is exactly one instruction
@@ -144,34 +154,49 @@ def bl(frm, to):
     return branch(frm, to)
 
 
-if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if not a.startswith("-")]
-    if "--release" in sys.argv:
-        FLAGS.clear()
-    code_addr = int(args[0], 0) if args else CAVES["code"][0]
-    data_addr = int(args[1], 0) if len(args) > 1 else CAVES["data"][0]
-    secs, syms = assemble(code_addr, data_addr)
+def build(menu, code_addr=None, data_addr=None, verbose=False):
+    caves = MENUS[menu]["CAVES"]
+    code_addr = caves["code"][0] if code_addr is None else code_addr
+    data_addr = caves["data"][0] if data_addr is None else data_addr
+    assert data_addr % 8 == 0, f"data block {data_addr:#x} must be 8-aligned (lfd)"
+    secs, syms = assemble(menu, code_addr, data_addr)
     code = secs["code"]
     data = data_block() + secs.get("code2", b"")    # data block, then the code2 section
     assert code_addr + len(code) <= data_addr or data_addr + len(data) <= code_addr, "code overlaps data"
     for name, size in (("code", len(code)), ("data", len(data))):
-        start, room = CAVES[name]
+        start, room = caves[name]
         addr = code_addr if name == "code" else data_addr
         if addr == start:
             assert size <= room, f"{name} ({size:#x}) does not fit its cave ({room:#x})"
-    out = ROOT / "build"
-    out.mkdir(exist_ok=True)
+    out = ROOT / "build" / f"v{menu}"
+    out.mkdir(parents=True, exist_ok=True)
     (out / "gc_hook.bin").write_bytes(code)
     (out / "gc_data.bin").write_bytes(data)
-    info = dict(code_addr=code_addr, data_addr=data_addr, code_size=len(code), data_size=len(data),
-                flags=sorted(FLAGS), syms=syms,
-                sites={k: dict(addr=a, orig=o, new=bl(a, syms["gc_" + k])) for k, (a, o) in SITES.items()})
+    info = dict(menu=menu, name=MENUS[menu]["name"], code_addr=code_addr, data_addr=data_addr,
+                code_size=len(code), data_size=len(data), flags=sorted(FLAGS), syms=syms,
+                sites={k: dict(addr=a, orig=o, new=bl(a, syms["gc_" + k]))
+                       for k, (a, o) in MENUS[menu]["SITES"].items()})
     (out / "gc_hook.json").write_text(json.dumps(info, indent=1))
-    print(f"code {code_addr:#x} size {len(code):#x}, data+code2 {data_addr:#x} size {len(data):#x}"
+    print(f"v{menu}: code {code_addr:#x} size {len(code):#x}, data+code2 {data_addr:#x} size {len(data):#x}"
           f" (code2 at {data_addr + DATA_SIZE:#x}), flags {sorted(FLAGS)}")
     print({k: hex(v) for k, v in syms.items()})
-    if "-v" in sys.argv:
+    if verbose:
         md = Cs(CS_ARCH_PPC, CS_MODE_32 | CS_MODE_BIG_ENDIAN)
         for base, blob in ((code_addr, code), (data_addr + DATA_SIZE, secs.get("code2", b""))):
             for i in md.disasm(blob, base):
                 print(f"{i.address:08x}: {i.mnemonic:9} {i.op_str}")
+
+
+if __name__ == "__main__":
+    argv = sys.argv[1:]
+    menus = list(MENUS)
+    if "--menu" in argv:
+        i = argv.index("--menu")
+        menus = [int(argv[i + 1])]
+        del argv[i:i + 2]
+    args = [int(a, 0) for a in argv if not a.startswith("-")]
+    assert not args or len(menus) == 1, "custom addresses need --menu"
+    if "--release" in argv:
+        FLAGS.clear()
+    for menu in menus:
+        build(menu, *args, verbose="-v" in argv)

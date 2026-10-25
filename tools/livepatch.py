@@ -1,4 +1,4 @@
-"""Install / remove the hook in a running Dolphin (System Menu v513).
+"""Install / remove the hook in a running Dolphin (System Menu v513 or v514, detected from RAM).
 
   python tools/build.py && python tools/livepatch.py install
   python tools/livepatch.py remove
@@ -18,27 +18,37 @@ from dolmem import Mem
 BUILD = Path(__file__).resolve().parent.parent / "build"
 
 
+def load_build(m):
+    """-> (build dir, info) of the build whose call sites match the running menu."""
+    for j in sorted(BUILD.glob("v*/gc_hook.json")):
+        info = json.loads(j.read_text())
+        if all(m.u32(s["addr"]) in (s["orig"], s["new"]) for s in info["sites"].values()):
+            return j.parent, info
+    raise SystemExit("the running menu matches no build in build/ (unsupported version, or not built?)")
+
+
 def main(cmd, secs=30.0):
-    info = json.loads((BUILD / "gc_hook.json").read_text())
     m = Mem(write=True)
+    out, info = load_build(m)
+    print(f"menu v{info['menu']} ({info['name']})")
     sites = info["sites"]
     if cmd == "install":
         for addr, size in ((info["code_addr"], info["code_size"]), (info["data_addr"], info["data_size"])):
             if addr >= 0x81330000:  # cave inside the menu: must still hold the original dead code
                 from ppc import Dol
-                if m.read(addr, size) != Dol().read(addr, size) and m.read(addr, 4) != (BUILD / "gc_hook.bin").read_bytes()[:4]:
+                if m.read(addr, size) != Dol(info["menu"]).read(addr, size) and m.read(addr, 4) != (out / "gc_hook.bin").read_bytes()[:4]:
                     print(f"note: {addr:#x} differs from the DOL (already patched?)")
         for k, s in sites.items():
             cur = m.u32(s["addr"])
             if cur not in (s["orig"], s["new"]):
                 raise SystemExit(f"{k}: unexpected word {cur:#010x} at {s['addr']:#x}; wrong menu version?")
-        m.write(info["data_addr"], (BUILD / "gc_data.bin").read_bytes())
-        m.write(info["code_addr"], (BUILD / "gc_hook.bin").read_bytes())
+        m.write(info["data_addr"], (out / "gc_data.bin").read_bytes())
+        m.write(info["code_addr"], (out / "gc_hook.bin").read_bytes())
         for s in sites.values():
             m.write(s["addr"], struct.pack(">I", s["new"]))
     elif cmd == "keep":
         import time
-        code, data = (BUILD / "gc_hook.bin").read_bytes(), (BUILD / "gc_data.bin").read_bytes()
+        code, data = (out / "gc_hook.bin").read_bytes(), (out / "gc_data.bin").read_bytes()
         t0, last = time.time(), None
         while time.time() - t0 < secs:
             ev = []

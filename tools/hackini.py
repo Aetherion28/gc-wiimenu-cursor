@@ -1,4 +1,4 @@
-"""Priiloader hacks_hash.ini helpers: parse like Priiloader does, locate patches in the v513 DOL."""
+"""Priiloader hacks_hash.ini helpers: parse like Priiloader does, locate patches in a menu DOL."""
 import re
 import sys
 sys.path.insert(0, __import__("os").path.dirname(__file__))
@@ -62,23 +62,29 @@ def resolve(hack, dol):
 
 if __name__ == "__main__":
     # usage: python tools/hackini.py <your hacks_hash.ini> [our .ini, default hack/gc_cursor_hack.ini]
-    # Lists every hack that applies to v513 and flags any that write where ours does.
+    # For each menu version we have a block (and a DOL) for, lists every other hack that applies
+    # to it and flags any that write where ours does.
     from pathlib import Path
+    from ppc import dol_path
     ours_file = sys.argv[2] if len(sys.argv) > 2 else Path(__file__).resolve().parent.parent / "hack" / "gc_cursor_hack.ini"
-    (mine,) = parse(open(ours_file, encoding="latin-1").read())
-    ours = [(p["offset"], len(p["patch"])) for p in mine["patches"]]
     hacks = parse(open(sys.argv[1], encoding="latin-1").read())
-    dol = Dol()
-    n = 0
-    for h in hacks:
-        if not h["min"] <= 513 <= h["max"] or h["name"] == mine["name"]:
+    for mine in parse(open(ours_file, encoding="latin-1").read()):
+        v = mine["min"]
+        if not dol_path(v).exists():
+            print(f"v{v}: skipped, no {dol_path(v).name}")
             continue
-        n += 1
-        for addr, patch in resolve(h, dol):
-            if addr is None:
-                print(f"  [{h['name']}] a hash was not found in v513")
+        ours = [(p["offset"], len(p["patch"])) for p in mine["patches"]]
+        dol = Dol(v)
+        n = 0
+        for h in hacks:
+            if not h["min"] <= v <= h["max"] or h["name"] == mine["name"]:
                 continue
-            for s, size in ours:
-                if addr < s + size and s < addr + len(patch):
-                    print(f"CONFLICT [{h['name']}] {addr:#x}+{len(patch):#x} overlaps ours {s:#x}+{size:#x}")
-    print(f"checked {n} other hacks that apply to v513")
+            n += 1
+            for addr, patch in resolve(h, dol):
+                if addr is None:
+                    print(f"  v{v} [{h['name']}] a hash was not found")
+                    continue
+                for s, size in ours:
+                    if addr < s + size and s < addr + len(patch):
+                        print(f"CONFLICT v{v} [{h['name']}] {addr:#x}+{len(patch):#x} overlaps ours {s:#x}+{size:#x}")
+        print(f"v{v}: checked {n} other hacks")

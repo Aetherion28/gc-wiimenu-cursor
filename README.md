@@ -12,11 +12,11 @@ Tested on a real Wii and in Dolphin.
 
 | | |
 |---|---|
-| System Menu | **4.3U (v513) only** |
+| System Menu | **4.3U (v513)** and **4.3E (v514)** |
 | Priiloader | Tested on 0.9.1 and 0.10.0 |
 | Console | Wii (not tested on vWii / Wii U) |
 
-To check your version, open **Wii Settings**: it's shown in the top right corner. It must say **4.3U**. Priiloader only lists the hack on v513, so other versions can't enable it by accident.
+To check your version, open **Wii Settings**: it's shown in the top right corner. It must say **4.3U** or **4.3E**. The hack file has one block per version and Priiloader only lists the one that matches your Wii, so you'll see a single *GameCube Controller Cursor* entry, and other versions can't enable it by accident.
 
 ## Controls
 
@@ -58,7 +58,7 @@ The hack only patches the System Menu in memory each time it starts. It does not
 
 | Problem | Fix |
 |---|---|
-| The hack isn't in Priiloader's list | Check that the file is at `SD:/apps/priiloader/hacks_hash.ini`, that no `patch=` line got wrapped or cut, and that your menu is 4.3U. |
+| The hack isn't in Priiloader's list | Check that the file is at `SD:/apps/priiloader/hacks_hash.ini`, that no `patch=` line got wrapped or cut, and that your menu is 4.3U or 4.3E. |
 | It's listed and enabled, but nothing happens | Make sure you selected **Save**, and that every Wii Remote is off. |
 | Region-free games or other hacks stopped working | Priiloader turned your other hacks off when the list changed (see install step 2). Turn them back on and **Save**. |
 | Still not working | Use the debug build below and check the disc slot light. |
@@ -86,16 +86,20 @@ The code lives in two functions of the menu that are never called. Priiloader wr
 The ready-made hack is in `hack/`, so you only need this to change the code or port it.
 
 1. Install Python 3.10+, then run `pip install -r requirements.txt` (capstone + keystone).
-2. To use the analysis tools (`ppc.py`, `caves.py`, `hackini.py`, `livepatch.py`), you need **your own** copy of the 4.3U menu DOL. It is not included. Make a BootMii NAND backup, import it into Dolphin (*Tools → Manage NAND → Import BootMii NAND Backup*), and copy the menu's boot content from `Wii/title/00000001/00000002/content/` in Dolphin's user folder to `bin/sysmenu_v513.dol`:
-   - with Priiloader installed it is `10000098.app` (Priiloader moved it there)
-   - without Priiloader it is `00000098.app`
-   - SHA-1: `26116613f624061ba99c8d1a299aaa6efa85670d`
-3. Build:
+2. To use the analysis tools (`ppc.py`, `caves.py`, `hackini.py`, `livepatch.py`, `port.py`), you need **your own** copy of the menu DOL for each version you work on. They are not included. Make a BootMii NAND backup, import it into Dolphin (*Tools → Manage NAND → Import BootMii NAND Backup*), and copy the menu's boot content from `Wii/title/00000001/00000002/content/` in Dolphin's user folder:
+
+   | Version | Save as | With Priiloader | Without | SHA-1 |
+   |---|---|---|---|---|
+   | 4.3U (v513) | `bin/sysmenu_v513.dol` | `10000098.app` | `00000098.app` | `26116613f624061ba99c8d1a299aaa6efa85670d` |
+   | 4.3E (v514) | `bin/sysmenu_v514.dol` | `1000009b.app` | `0000009b.app` | `2ebea6ed22473857ed64b12daa71ae2d1ed61708` |
+
+   (Priiloader moves the original menu to the `1…` name.)
+3. Build (every supported version, then one .ini with a block for each):
    ```
    python tools/build.py --release
    python tools/mkhack.py hack/gc_cursor_hack.ini
    ```
-   Leave out `--release` for the debug build (disc light + counters).
+   Leave out `--release` for the debug build (disc light + counters). `build.py` and `mkhack.py` don't read the DOLs; the per-version addresses are in `MENUS` in `tools/build.py`.
 
 Tuning values (cursor speed, dead zone, screen limits, button map) are at the top of `tools/build.py`. Testing in Dolphin without Priiloader is described in [docs/TECHNICAL.md](docs/TECHNICAL.md#testing-in-dolphin).
 
